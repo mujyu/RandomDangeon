@@ -1474,3 +1474,6 @@ Window_Status.prototype.drawBlock3 = function(y) {
 	//this.drawActorSlp(this._actor, 48, y2 + (this.lineHeight() * 3), 186, 'right'); //眠気
 	//this.drawActorPsl(this._actor, 48, y2 + (this.lineHeight() * 4), 186, 'right'); //体調
 };
+
+
+

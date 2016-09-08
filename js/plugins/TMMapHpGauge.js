@@ -1,4 +1,4 @@
-//=============================================================================
+﻿//=============================================================================
 // TMPlugin - マップＨＰゲージ
 // バージョン: 1.0.0
 // 最終更新日: 2016/08/14
@@ -405,7 +405,7 @@ TMPlugin.MapHpGauge.EventBusyHide   = TMPlugin.MapHpGauge.Parameters['eventBusyH
         if (needRefresh === 'SHAKE') this._shakeDuration = TMPlugin.MapHpGauge.ShakeTime;
         for (var i = 0; i < 3; i++) {
           var gauge = TMPlugin.MapHpGauge.Gauges[i]
-          if (gauge.type === ‘疲労度’) {
+          if (gauge.type === 'HP') {
             this._gaugeParams[i].param = actor.hp;
             this._gaugeParams[i].max = actor.mhp;
           } else if (gauge.type === 'MP') {
