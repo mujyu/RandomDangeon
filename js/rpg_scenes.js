@@ -455,6 +455,7 @@ Scene_Map.prototype.terminate = function() {
         SceneManager.snapForBackground();
     }
     $gameScreen.clearZoom();
+    this.live2DMgr.releaseAll(Graphics._renderer.gl);
 };
 
 Scene_Map.prototype.needsFadeIn = function() {
@@ -525,9 +526,20 @@ Scene_Map.prototype.updateScene = function() {
 
 Scene_Map.prototype.createDisplayObjects = function() {
     this.createSpriteset();
+    this.createlive2d();
     this.createMapNameWindow();
     this.createWindowLayer();
     this.createAllWindows();
+};
+
+Scene_Map.prototype.createlive2d = function () {
+    this.live2DMgr = new LAppLive2DManager();
+    this.live2DMgr.reloadFlg = false;
+    this.live2DMgr.count++;
+
+    var model = this.live2DMgr.createModel();
+    model.load(Graphics._renderer.gl, $gameLive2d._modelfile1);
+    this.addChild(model);
 };
 
 Scene_Map.prototype.createSpriteset = function() {

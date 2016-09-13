@@ -10451,3 +10451,35 @@ Game_Interpreter.prototype.command356 = function() {
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     // to be overridden by plugins
 };
+
+//-----------------------------------------------------------------------------
+// Game_Live2d
+//
+
+function Game_Live2d() {
+    this.initialize.apply(this, arguments);
+}
+
+Game_Live2d.prototype.initialize = function () {
+    this._visible = false;
+    this._modelfile1 = "";
+    this._expression = "expression1";
+    this._modelfile1 = $Stand_Character_FileName_obj[$SPM_Live2d_CharaName_ini];
+    this._motion_no = 0;
+};
+
+//表示フラグ
+Game_Live2d.prototype.showPicture = function () {
+    this._visible = true;
+};
+
+Game_Live2d.prototype.hidePicture = function () {
+    this._visible = false;
+};
+
+//表情変更
+Game_Live2d.prototype.setExpression = function (expression, motion_no) {
+    this._expression = expression;
+    //しぐさ変更
+    this._motion_no = motion_no;
+};

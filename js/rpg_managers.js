@@ -41,6 +41,8 @@ var $gameMap          = null;
 var $gamePlayer       = null;
 var $testEvent        = null;
 
+var $gameLive2d = null;
+
 DataManager._globalId       = 'RPGMV';
 DataManager._lastAccessedId = 1;
 DataManager._errorUrl       = null;
@@ -209,7 +211,8 @@ DataManager.createGameObjects = function() {
     $gameParty         = new Game_Party();
     $gameTroop         = new Game_Troop();
     $gameMap           = new Game_Map();
-    $gamePlayer        = new Game_Player();
+    $gamePlayer = new Game_Player();
+    $gameLive2d = new Game_Live2d();
 };
 
 DataManager.setupNewGame = function() {
