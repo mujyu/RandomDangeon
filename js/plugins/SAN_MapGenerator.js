@@ -1,132 +1,103 @@
 //=============================================================================
 // SAN_MapGenerator.js
 //=============================================================================
-// Copyright (c) 2015-2016 Sanshiro
+// Copyright (c) 2015 Sanshiro
 // Released under the MIT license
 // http://opensource.org/licenses/mit-license.php
 //=============================================================================
 
 /*:
- * @plugindesc 自動マップ生成 ver1.16
- * 自動的にマップを生成しイベントを配置します。
- * @author サンシロ https://twitter.com/rev2nym
- * @version 1.16 2016/09/21 部屋生成の処理を修正。入口イベントの不具合を修正。壁生成と大部屋のスクリプトコマンドを追加。
- * 1.15 2016/09/13 壁生成判定の不具合を修正。ツルハシとバクダンのスクリプトコマンドを追加。
- * 1.14 2016/09/12 座標による部屋取得機能の不具合を修正。イベントのプレイヤーと同部屋判定を追加。
- * 1.12 2016/09/08 壁生成判定の不具合を修正。オートタイル以外のタイルの使用に対応。
- * 1.11 2016/04/05 稀に壁をすり抜ける不具合を修正、通行判定機能を強化。
- * 1.10 2016/03/19 壁の高さ、部屋の大きさ、外壁表示を指定するプラグインパラメータを追加、 壁を表示するスペースを確保するよう部屋と通路の生成規則を変更。
- * 1.00a 2015/12/19 ヘルプ文書のイベントメモ欄設定の誤りを修正。
- * 1.00 2015/11/29 公開
- * 
- * @param WallHight
- * @desc 壁の高さを指定します。（1～3）
- * @default 1
- * 
- * @param MinRoomSize
- * @desc 部屋の大きさの最小値を指定します。（3～）
- * @default 5
- * 
- * @param MaxRoomSize
- * @desc 部屋の大きさの最大値を指定します。（3～）
- * MaxRoomSizeがMinRoomSizeより小さい場合、MinRoomSizeと同じ値に補正されます。
- * @default 10
- * 
- * @param ShowOuterWall
- * @desc 部屋の外側の壁を表示します。（ONで有効）
- * @default ON
+ * @plugindesc SAN_MapGenerator ver1.00a
+ * Generate map and allocate events automatically.
+ * @author Sanshiro https://twitter.com/rev2nym
  * 
  * @help
- * ■概要
- * マップ生成プラグインコマンドを実行するとマップが自動生成され
+ * When the plugin command is called, the map is generated 
+ * and the player moves to position of start(entrance) event.
+ * 
+ * Set following tiles and events in a position on the base map.
+ * 
+ * -Tiles
+ *   space :{x:0, y:0}
+ *   room  :{x:0, y:1}
+ *   pass  :{x:0, y:2}
+ *   roof  :{x:0, y:3}
+ *   wall  :{x:0, y:4}
+ *   rubble:{x:0, y:5}
+ * 
+ * -Events
+ *   start:{x:1, y:0}
+ *   goal :{x:1, y:1}
+ *   other:other position than above
+ * 
+ * Appearance rate can be set as events besides the start and the goal.
+ * Set as the following on a memo space of events.
+ * The event which has no setting of the appearance rate isn't generated.
+ * 
+ * -Appearance rate
+ *   each map :<RateMap: [Positive small number of less than 1.0]>
+ *   each room:<RateRoom:[Positive small number of less than 1.0]>
+ * 
+ * -Plugin Command
+ *   MapGenerator RoomAndPass # Generate map consists of rooms and passes. 
+ *   MapGenerator FillRoom    # Generate map consists of a room whole the map.
+ *   
+ * There is no plugin parameter.
+ *
+ *
+ * It's possible to commercial use, distribute, and modify under the MIT license.
+ * But, don't eliminate and don't alter a comment of the beginning.
+ * If it's good, please indicate an author name on credit.
+ * 
+ * Author doesn't shoulder any responsibility in all kind of damage by using this.
+ * And please don't expect support. X(
+ */
+
+/*:ja
+ * @plugindesc 自動マップ生成 ver1.00a
+ * 自動的にマップを生成しイベントを配置します。
+ * @author サンシロ https://twitter.com/rev2nym
+ * @version 1.00a 2015/12/19 ヘルプ文書のイベントメモ欄設定の誤りを修正
+ * 1.00 2015/11/29 公開
+ * 
+ * @help
+ * プラグインコマンドを実行するとマップが生成され
  * プレイヤーが入口イベントの地点に移動します。
  * 
- * ■設定
- * ツクールMVのエディタ上でベースとなるマップの下記の座標に
- * タイルとイベントを配置して下さい。
- * 
+ * ベースとなるマップの座標に下記のタイルとイベントをそれぞれ配置して下さい。
  * ・タイル
  *  空白:{x:0, y:0}
  *  部屋:{x:0, y:1}
  *  通路:{x:0, y:2}
  *  天井:{x:0, y:3}
- *  壁  :{x:0, y:4}
+ *  壁　:{x:0, y:4}
  *  瓦礫:{x:0, y:5}
  * 
  * ・イベント
  *  入口:{x:1, y:0}
  *  出口:{x:1, y:1}
- *  他  :上記以外の座標
+ *  他　:上記以外の座標
  * 
- * ・イベント出現率
  * 入口と出口以外のイベントには出現率を設定できます。
  * イベントのメモ欄に下記を記載して下さい。
  * 出現率設定がないイベント生成されません。
  * 
+ * ・イベント出現率
  *  マップ毎の出現率:<RateMap: [1.0以下の正の小数]>
- *  部屋毎の出現率  :<RateRoom:[1.0以下の正の小数]>
+ *  部屋毎の出現率　:<RateRoom:[1.0以下の正の小数]>
  * 
- * ■プラグインコマンド
- * ・MapGenerator RoomAndPass
- *  部屋と通路から構成されるマップを生成します。
+ * ・プラグインコマンド
+ * MapGenerator RoomAndPass # 部屋と通路から構成されるマップを生成します。
+ * MapGenerator FillRoom    # マップ全体に及ぶ一つの部屋を生成します。
  * 
- * ・MapGenerator FillRoom
- *  マップ全体に及ぶ一つの部屋を生成します。
+ * プラグインパラメータはありません。
  * 
- * ■スクリプトコマンド
- * ・Game_Character.prototype.isSameRoomWithPlayer()
- *  キャラクターのプレイヤーとの同部屋判定です。
- *  例：条件分岐イベントコマンドのスクリプト欄に
- *      「this.character().isSameRoomWithPlayer()」
- *      と記述するとそのイベントがプレイヤーと同じ部屋に
- *      存在するか判定します。
- * 
- * ・Game_Map.prototype.pickel()
- *  ツルハシコマンドです。
- *  プレイヤーの正面の非地面タイルを通路タイルに変換します。
- *  このコマンドは自動生成マップ内のみ有効です。
- *  例：コモンイベントのスクリプトコマンドに
- *     「$gameMap.pickel()」
- *      と記述して実行すると正面の壁を掘ることができます。
- * 
- * ・Game_Map.prototype.bomb(x, y)
- *  バクダンコマンドです。
- *  指定した座標と周囲の9タイルの非地面タイルを通路タイルに変換します。
- *  このコマンドは自動生成マップ内のみ有効です。
- *  例：コモンイベントのスクリプトコマンドに
- *      「$gameMap.bomb($gamePlayer.x, $gamePlayer.y)」
- *      と記述して実行するとプレイヤーの周囲の壁を取り除くことができます。
- * 
- * ・Game_Map.prototype.makeWall(x, y)
- *  壁生成コマンドです。
- *  指定した座標の地面タイルを壁(瓦礫)タイルに変換します。
- *  このコマンドは自動生成マップ内のみ有効です。
- *  例：コモンイベントのスクリプトコマンドに
- *      「var x = $gamePlayer.x;
- *        var y = $gamePlayer.y;
- *        var d = $gamePlayer.direction();
- *        $gameMap.makeWall(
- *            $gameMap.xWithDirection(x, d),
- *            $gameMap.yWithDirection(y, d)
- *        );」
- *      と記述して実行するとプレイヤーの正面に壁を設置することができます。
- * 
- * ・Game_Map.prototype.bigRoom()
- *  大部屋コマンドです。
- *  マップ全体に及ぶ一つの部屋を生成します。
- *  このコマンドは自動生成マップ内のみ有効です。
- *  例：コモンイベントのスクリプトコマンドに
- *     「$gameMap.bigRoom()」
- *      と記述して実行すると大部屋を生成します。
- * 
- * ■利用規約
  * MITライセンスのもと、商用利用、改変、再配布が可能です。
  * ただし冒頭のコメントは削除や改変をしないでください。
  * よかったらクレジットに作者名を記載してください。
  * 
  * これを利用したことによるいかなる損害にも作者は責任を負いません。
  * サポートは期待しないでください＞＜。
- * 
  */
 
 var Imported = Imported || {};
@@ -168,9 +139,9 @@ Game_MapGenerator.tileIdsFloor.connect = {
     3:[ 0,  1,  2,  3,  8,  9, 10, 11, 16, 17, 20, 22,
        24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 36,
        37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47],         // 3:右下
-    4:[ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11,
-       12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 27,
-       28, 29, 30, 31, 33, 36, 37, 38, 39, 45, 47],         // 4:左
+     4:[ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11,
+        12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 27,
+        28, 29, 30, 31, 33, 36, 37, 38, 39, 45, 47],         // 4:左
     6:[ 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11,
        12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
        28, 29, 30, 31, 33, 34, 35, 40, 41, 43, 47],         // 6:右
@@ -226,8 +197,7 @@ Game_MapGenerator.tileIdsWall.noConnect = {
 
 // 初期化
 Game_MapGenerator.prototype.initialize = function() {
-    this._wallHeight = Number(PluginManager.parameters('SAN_MapGenerator')['WallHight']);
-    this._showOuterWall = (PluginManager.parameters('SAN_MapGenerator')['ShowOuterWall'] === 'ON');
+    this._wallHeight = 1;
     this._startXY = {x:0, y:0};
     this._goalXY  = {x:0, y:0};
     this._blocks  = [];
@@ -239,7 +209,7 @@ Game_MapGenerator.prototype.initialize = function() {
 
 // マップ生成
 Game_MapGenerator.prototype.setup = function() {
-    $gameMap._events = [undefined];
+    $gameMap._events = [];
     for (key in $gameSelfSwitches._data) {
         if (key.split(",")[0] === String($gameMap.mapId())) {
             delete $gameSelfSwitches._data[key];
@@ -262,7 +232,7 @@ Game_MapGenerator.prototype.setup = function() {
     this.setRateEvents();
     SceneManager._scene.createDisplayObjects();
     this._isReady = true;
-};
+}
 
 // シンボル定義表の初期化
 Game_MapGenerator.prototype.initSymbolTable = function() {
@@ -271,15 +241,15 @@ Game_MapGenerator.prototype.initSymbolTable = function() {
     //  baseTileId : シンボルに対応するタイル ID 
     //  dispChar   : 生成したマップを文字列として表示する際の文字 
     this._symbolTable = {
-        player: {refXY:{x:0, y:0}, baseTileId:[], dispChar:'＠', passable:['room', 'pass']},
-        space:  {refXY:{x:0, y:0}, baseTileId:[], dispChar:'　', passable:['space']},
-        room:   {refXY:{x:0, y:1}, baseTileId:[], dispChar:'□', passable:['room', 'pass']},
-        pass:   {refXY:{x:0, y:2}, baseTileId:[], dispChar:'■', passable:['room', 'pass']},
-        roof:   {refXY:{x:0, y:3}, baseTileId:[], dispChar:'＃', passable:['roof']},
-        wall:   {refXY:{x:0, y:4}, baseTileId:[], dispChar:'＝', passable:[]},
-        rubble: {refXY:{x:0, y:5}, baseTileId:[], dispChar:'＊', passable:[]}, 
-        start:  {refXY:{x:1, y:0}, baseTileId:[], dispChar:'△', passable:['room', 'pass']},
-        goal:   {refXY:{x:1, y:1}, baseTileId:[], dispChar:'▽', passable:['room', 'pass']}//,
+        player: {refXY:{x:0, y:0}, baseTileId:[], dispChar:'＠'},
+        space:  {refXY:{x:0, y:0}, baseTileId:[], dispChar:'　'},
+        room:   {refXY:{x:0, y:1}, baseTileId:[], dispChar:'□'},
+        pass:   {refXY:{x:0, y:2}, baseTileId:[], dispChar:'■'},
+        roof:   {refXY:{x:0, y:3}, baseTileId:[], dispChar:'＃'},
+        wall:   {refXY:{x:0, y:4}, baseTileId:[], dispChar:'＝'},
+        rubble: {refXY:{x:0, y:5}, baseTileId:[], dispChar:'＊'}, 
+        start:  {refXY:{x:1, y:0}, baseTileId:[], dispChar:'△'},
+        goal:   {refXY:{x:1, y:1}, baseTileId:[], dispChar:'▽'}//,
     //  fence:  {refXY:{x:0, y:6}, baseTileId:[], dispChar:'只'},
     //  pond:   {refXY:{x:0, y:7}, baseTileId:[], dispChar:'○'},
     //  hole:   {refXY:{x:0, y:8}, baseTileId:[], dispChar:'●'},
@@ -317,33 +287,25 @@ Game_MapGenerator.prototype.initSymbolMap = function() {
     }
 };
 
-// シンボルによる通行可能判定
-Game_MapGenerator.prototype.isPassable = function(x, y, d) {
-    var x2 = $gameMap.roundXWithDirection(x, d);
-    var y2 = $gameMap.roundYWithDirection(y, d);
-    if (!this._symbolMap[x]  || !this._symbolMap[x][y] ||
-        !this._symbolMap[x2] || !this._symbolMap[x2][y2]) {
-        return false;
-    }
-    var symbol  = this._symbolMap[x][y];
-    var symbol2 = this._symbolMap[x2][y2];
-    return this._symbolTable[symbol].passable.contains(symbol2);
-};
-
-// シンボルによる地面判定
-Game_MapGenerator.prototype.isGround = function(x, y) {
+// シンボルによる通行可能判定（通行可否定義）
+Game_MapGenerator.prototype.isPassable = function(x, y) {
     if (!this._symbolMap[x] || !this._symbolMap[x][y]) {
         return false;
     }
-    return ['room', 'pass', 'start', 'goal'].indexOf(this._symbolMap[x][y]) !== -1;
+    return ['room', 'pass', 'start', 'goal', 'crawler'].indexOf(this._symbolMap[x][y]) !== -1;
 };
 
-// シンボルによる壁判定
-Game_MapGenerator.prototype.isWall = function(x, y) {
-    if (!this._symbolMap[x] || !this._symbolMap[x][y]) {
-        return false;
+// マップ上における通行可能タイルの割合
+Game_MapGenerator.prototype.passableRatio = function() {
+    var passableCount = 0;
+    for(var x = 0; x < $gameMap.width(); x++) {
+        for(var y = 0; y < $gameMap.height(); y++) {
+            if (this.isPassable(x, y)) {
+                passableCount++;
+            }
+        }
     }
-    return this._symbolMap[x][y] === 'wall';
+    return passableCount / ($gameMap.width() * $gameMap.height());
 };
 
 // シンボルマップ生成
@@ -359,7 +321,7 @@ Game_MapGenerator.prototype.generateMap = function() {
         }
     }
     this._rooms.push(room);
-};
+}
 
 // イベントの設置
 Game_MapGenerator.prototype.setEvent = function(event, targetSymbols, targetArea) {
@@ -449,7 +411,7 @@ Game_MapGenerator.prototype.randBool = function(probability) {
 Game_MapGenerator.prototype.refreshWallAndRoof = function() {
     for (var x = 0; x < this._symbolMap.length; x++) {
         for (var y = 0; y < this._symbolMap[x].length; y++) {
-            if (!this.isGround(x, y)) {
+            if (!this.isPassable(x, y)) {
                 continue;
             }
             this.refreshWallAndRoofUpperSide(x - 1, y - 1);  // 左上
@@ -462,8 +424,8 @@ Game_MapGenerator.prototype.refreshWallAndRoof = function() {
             this.refreshWallAndRoofDowner(x + 1, y + 1);     // 右下
         }
     }
-    for (var x = this._symbolMap.length - 1; x >= 0; x--) {
-        for (var y = this._symbolMap[x].length - 1; y >= 0; y--) {
+    for (var x = this._symbolMap.length - 1; x >= this._symbolMap.length; x--) {
+        for (var y = this._symbolMap[x].length - 1; y >= this._symbolMap[x].length; y--) {
             if (this._symbolMap[x][y] === 'roof' && this._symbolMap[x][y - 1] === 'wall') {
                 this._symbolMap[x][y - 1] = 'roof';
             }
@@ -473,10 +435,10 @@ Game_MapGenerator.prototype.refreshWallAndRoof = function() {
 
 // シンボルマップの壁と天井を設置：上
 Game_MapGenerator.prototype.refreshWallAndRoofUpper = function(x, y) {
-    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isGround(x, y)) {
+    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isPassable(x, y)) {
         return;
     }
-    for (var h = 0; h < y && !this.isGround(x, y - h); h++);
+    for (var h = 0; h < y && !this.isPassable(x, y - h); h++);
     if (h > this._wallHeight) {
         for (var wH = 0; wH < this._wallHeight; wH++) {
             this._symbolMap[x][y - wH] = 'wall';
@@ -484,7 +446,7 @@ Game_MapGenerator.prototype.refreshWallAndRoofUpper = function(x, y) {
         this._symbolMap[x][y - this._wallHeight] = 'roof';
     } else {
         for (var wH = 0; wH < h; wH++) {
-            if (!this.isGround(x, y - wH)) {
+            if (this._symbolMap[x][y - wH] === 'space') {
                 this._symbolMap[x][y - wH] = 'rubble';
             }
         }
@@ -493,22 +455,20 @@ Game_MapGenerator.prototype.refreshWallAndRoofUpper = function(x, y) {
 
 // シンボルマップの壁と天井を設置：下
 Game_MapGenerator.prototype.refreshWallAndRoofDowner = function(x, y) {
-    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isGround(x, y)) {
+    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isPassable(x, y)) {
         return;
     }
-    for (var h = 0; h + y < $gameMap.height() && !this.isGround(x, y + h); h++);
+    for (var h = 0; h + y < $gameMap.height() && !this.isPassable(x, y + h); h++);
     if (h > this._wallHeight) {
         this._symbolMap[x][y] = 'roof';
-        if (this._showOuterWall) {
-            for (var wH = 0; wH < this._wallHeight; wH++) {
-                if (this._symbolMap[x][y + wH + 1] !== 'roof') {
-                    this._symbolMap[x][y + wH + 1] = 'wall';
-                }
+        for (var wH = 0; wH < this._wallHeight; wH++) {
+            if (this._symbolMap[x][y + wH + 1] !== 'roof') {
+                this._symbolMap[x][y + wH + 1] = 'wall';
             }
         }
     } else {
         for (var wH = 0; wH < h; wH++) {
-            if (!this.isGround(x, y + wH) && !this.isWall(x, y)) {
+            if (this._symbolMap[x][y + wH] === 'space') {
                 this._symbolMap[x][y + wH] = 'rubble';
             }
         }
@@ -517,10 +477,10 @@ Game_MapGenerator.prototype.refreshWallAndRoofDowner = function(x, y) {
 
 //シンボルマップの壁と天井を設置：横
 Game_MapGenerator.prototype.refreshWallAndRoofSide = function(x, y) {
-    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isGround(x, y)) {
+    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isPassable(x, y)) {
         return;
     }
-    if (this.isGround(x, y + 1)) {
+    if (this.isPassable(x, y + 1)) {
         this.refreshWallAndRoofUpper(x, y);
     } else {
         this.refreshWallAndRoofDowner(x, y);
@@ -529,7 +489,7 @@ Game_MapGenerator.prototype.refreshWallAndRoofSide = function(x, y) {
 
 // シンボルマップの壁と天井を設置：斜め上
 Game_MapGenerator.prototype.refreshWallAndRoofUpperSide = function(x, y) {
-    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isGround(x, y)) {
+    if (!this._symbolMap[x] || !this._symbolMap[x][y] || this.isPassable(x, y)) {
         return;
     }
     this.refreshWallAndRoofDowner(x, y - this._wallHeight);
@@ -537,16 +497,15 @@ Game_MapGenerator.prototype.refreshWallAndRoofUpperSide = function(x, y) {
 
 // オートタイルを考慮したタイルID
 Game_MapGenerator.prototype.autoTileId = function(x, y, z) {
-    var baseTileId = this._symbolTable[this._symbolMap[x][y]].baseTileId[z];
     if ((x < 0 || x >= $dataMap.width) || (y < 0 || y >= $dataMap.height)) {
-        return undefined;
+        return 0;
     } else if (z === 4) {
         return this.shadow(x, y);
-    } else if (!Tilemap.isAutotile(baseTileId)) { 
-        return baseTileId;
+    } else if ((z !== 0 && z !== 1) || this._symbolTable[this._symbolMap[x][y]].baseTileId[z] === 0) {
+        return this._symbolTable[this._symbolMap[x][y]].baseTileId[z];
     }
     var candidateTileIds = [];
-    if (!Tilemap.isWallSideTile(baseTileId)) {
+    if (this._symbolMap[x][y] !== 'wall') {
         // 壁以外の場合
         candidateTileIds = Game_MapGenerator.tileIdsFloor.candidate.concat();
         [1, 2, 3, 4, 6, 7, 8, 9].forEach (function(direction) {
@@ -555,15 +514,14 @@ Game_MapGenerator.prototype.autoTileId = function(x, y, z) {
             if ((dx < 0 || dx >= $dataMap.width) || (dy < 0 || dy >= $dataMap.height)) {
                 return; // マップ範囲外なら判定しない
             }
-            var roundTileId = this._symbolTable[this._symbolMap[dx][dy]].baseTileId[z];
-            if (Tilemap.isSameKindTile(baseTileId, roundTileId)) {
+            if (this._symbolMap[x][y] === this._symbolMap[dx][dy]) {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsFloor.connect[direction].indexOf(Id) !== -1;
-                }); // 同種オートタイルの場合候補タイルIDから接続タイルIDを選択
+                }); // 同種シンボルの場合候補タイルIDから接続タイルIDを選択
             } else {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsFloor.noConnect[direction].indexOf(Id) !== -1;
-                }); // 異種オートタイルの場合候補タイルIDから非接続タイルIDを選択
+                }); // 異種シンボルの場合候補タイルIDから非接続タイルIDを選択
             }
         }, this);
     } else {
@@ -578,15 +536,14 @@ Game_MapGenerator.prototype.autoTileId = function(x, y, z) {
             if ((dx < 0 || dx >= $dataMap.width) || (dy < 0 || dy >= $dataMap.height)) {
                 return; // マップ範囲外なら判定しない
             }
-            var roundTileId = this._symbolTable[this._symbolMap[dx][dy]].baseTileId[z];
-            if (Tilemap.isSameKindTile(baseTileId, roundTileId)) {
+            if (this._symbolMap[x][y] === this._symbolMap[dx][dy]) {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsWall.connect[direction].indexOf(Id) !== -1;
-                }); // 同種オートタイルの場合候補タイルIDから接続タイルIDを選択
+                }); // 同種シンボルの場合候補タイルIDから接続タイルIDを選択
             } else {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsWall.noConnect[direction].indexOf(Id) !== -1;
-                }); // 異種オートタイルの場合候補タイルIDから非接続タイルIDを選択
+                }); // 異種シンボルの場合候補タイルIDから非接続タイルIDを選択
             }
         }, this);
         // 左右の処理
@@ -596,28 +553,20 @@ Game_MapGenerator.prototype.autoTileId = function(x, y, z) {
             if ((dx < 0 || dx >= $dataMap.width) || (dy < 0 || dy >= $dataMap.height)) {
                 return; // マップ範囲外なら判定しない
             }
-            var upperSideTileId  = this._symbolTable[this._symbolMap[dx][ty]].baseTileId[z];
-            var downerSideTileId = this._symbolTable[this._symbolMap[dx][by]].baseTileId[z];
-            if ((Tilemap.isWallTile(upperSideTileId)  || Tilemap.isRoofTile(upperSideTileId)) &&
-                (Tilemap.isWallTile(downerSideTileId) || Tilemap.isRoofTile(downerSideTileId)))
+            if ((this._symbolMap[dx][ty] === 'wall' || this._symbolMap[dx][ty] === 'roof') &&
+                (this._symbolMap[dx][by] === 'wall' || this._symbolMap[dx][by] === 'roof'))
             {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsWall.connect[direction].indexOf(Id) !== -1;
-                }); // 壁の下端の両横隣が壁タイルまたは天井タイルでかつ上端の両横隣が壁タイルまたは天井タイルでなければ接続タイルIDを選択
+                });　// 壁の下端の両横隣が壁または天井でかつ上端の両横隣が壁または天井でなければ接続タイルIDを選択
             } else {
                 candidateTileIds = candidateTileIds.filter(function(Id) {
                     return Game_MapGenerator.tileIdsWall.noConnect[direction].indexOf(Id) !== -1;
-                }); // 非接続タイルIDを選択
+                });　// 非接続タイルIDを選択
             }
         }, this);
     }
     return this._symbolTable[this._symbolMap[x][y]].baseTileId[z] + candidateTileIds[0];
-};
-
-
-// タイル同種判定
-Game_MapGenerator.prototype.isSameKindTileSymbol = function(symbol1, symbol2) {
-    return Tilemap.isSameKindTile(symbol1, symbol2);
 };
 
 // 影の算出
@@ -640,7 +589,7 @@ Game_MapGenerator.prototype.shadow = function(x, y) {
     return 0;
 };
 
-// マップデータ作成
+//マップデータ作成
 Game_MapGenerator.prototype.makeData = function() {
     var width = $dataMap.width;
     var height = $dataMap.height;
@@ -650,91 +599,6 @@ Game_MapGenerator.prototype.makeData = function() {
                 this._data[(z * height + y) * width + x] = this.autoTileId(x, y, z);
             }
         }
-    }
-};
-
-// 非地面タイルを通路タイルに変換
-Game_MapGenerator.prototype.notGroundToPass = function(x, y) {
-    var wH = this._wallHeight;
-    if (x < 2      || $gameMap.width() - 2       <= x) { return; }
-    if (y < wH + 2 || $gameMap.height() - wH - 2 <= y) { return; }
-    if (!this.isGround(x, y)) {
-        this._symbolMap[x][y] = 'pass';
-    }
-};
-
-// ツルハシ(プレイヤーの前方1タイルを通路タイルに変換)
-Game_MapGenerator.prototype.pickel = function() {
-    this.notGroundToPass(
-        $gameMap.xWithDirection($gamePlayer.x, $gamePlayer.direction()),
-        $gameMap.yWithDirection($gamePlayer.y, $gamePlayer.direction())
-    );
-    this.refreshWallAndRoof();
-    this.makeData();
-    if (Imported.SAN_AnalogMove) {
-        Game_CollideMap.setup();
-    }
-};
-
-// バクダン(指定座標と周囲の計9タイルを通路タイルに変換)
-Game_MapGenerator.prototype.bomb = function(x, y) {
-    for (var x2 = x - 1; x2 <= x + 1; x2++) {
-        for (var y2 = y - 1; y2 <= y + 1; y2++) {
-            this.notGroundToPass(x2, y2);
-        }
-    }
-    this.refreshWallAndRoof();
-    this.makeData();
-    if (Imported.SAN_AnalogMove) {
-        Game_CollideMap.setup();
-    }
-};
-
-// 大部屋
-Game_MapGenerator.prototype.bigRoom = function() {
-    var block = {
-        x:1,
-        y:1,
-        w:$dataMap.width - 2,
-        h:$dataMap.height - 2
-    };
-    var room = {
-        x:block.x + 2,
-        y:block.y + 2 + this._wallHeight,
-        w:block.w - 4,
-        h:block.h - 4 - this._wallHeight * 2,
-        hasPass:{t:false, b:false, l:false, r:false}
-    };
-    this._blocks = [block];
-    this._rooms  = [room];
-    this._passes = [];
-    this.initSymbolMap();
-    for (var y = 0; y < room.h; y++) {
-        for (var x = 0 ; x < room.w; x++) {
-            this._symbolMap[room.x + x][room.y + y] = 'room';
-        }
-    }
-    this.refreshWallAndRoof();
-    this.makeData();
-    if (Imported.SAN_AnalogMove) {
-        Game_CollideMap.setup();
-    }
-};
-
-// 指定したタイルを空白タイルに変換
-Game_MapGenerator.prototype.anyToSpace = function(x, y) {
-    if (x < 0 || $gameMap.width()  <= x) { return; }
-    if (y < 0 || $gameMap.height() <= y) { return; }
-    this._symbolMap[x][y] = 'space';
-};
-
-// 壁生成
-Game_MapGenerator.prototype.makeWall = function(x, y) {
-    this.anyToSpace(x, y);
-    this.refreshWallAndRoof();
-    this.makeData();
-    if (Imported.SAN_AnalogMove) {
-        Game_CollideMap.setup();
     }
 };
 
@@ -763,6 +627,19 @@ Game_MapGenerator.prototype.printMap = function() {
         dispMap += "\r\n";
     }
     console.log(dispMap);
+    // this.fPrintMap(dispMap);
+};
+
+// テキスト出力（デバッグ用）
+Game_MapGenerator.prototype.fPrintMap = function(mapString) {
+    var data = LZString.compressToBase64(mapString);
+    var fs = require('fs');
+    var dirPath = StorageManager.localFileDirectoryPath();
+    var filePath = StorageManager.localFileDirectoryPath() + 'mapData.txt';
+    if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath);
+    }
+    fs.writeFileSync(filePath, mapString);
 };
 
 //-----------------------------------------------------------------------------
@@ -784,20 +661,16 @@ Game_MapGeneratorRoomAndPass.prototype.initialize = function() {
 
 // マップ（ダンジョン）自動生成
 Game_MapGeneratorRoomAndPass.prototype.generateMap = function() {
-    this._minRoomSize = Number(PluginManager.parameters('SAN_MapGenerator')['MinRoomSize']);
-    this._maxRoomSize = Number(PluginManager.parameters('SAN_MapGenerator')['MaxRoomSize']);
-    if (this._maxRoomSize < this._minRoomSize) {
-        this._maxRoomSize = this._minRoomSize;
-    }
-    this._minBlockSize = this._minRoomSize + (this._wallHeight + 1) * 2 + 2;
+    this._minRoomSize = 3;
+    this._minBlockSize = this._minRoomSize + 2;
     this._minRooms = 2;
     this._maxRooms = 5;
     this._adjacentBlockIndexList = [];
     var block = {
         x:1,
-        y:1,
+        y:1 + this._wallHeight,
         w:$dataMap.width - 2,
-        h:$dataMap.height - 2
+        h:$dataMap.height - (this._wallHeight + 1) * 2
     };
     this._blocks.push(block);
     this.splitBlock(this._blocks[0]);
@@ -854,17 +727,11 @@ Game_MapGeneratorRoomAndPass.prototype.makeAdjacentBlockIndexList = function() {
 // 部屋作成
 Game_MapGeneratorRoomAndPass.prototype.makeRooms = function() {
     this._blocks.forEach(function(block) {
-        var roomW = this._minRoomSize + Math.randomInt((block.w - (this._wallHeight + 1) * 2) - this._minRoomSize - 2);
-        var roomH = this._minRoomSize + Math.randomInt((block.h - (this._wallHeight + 1) * 2) - this._minRoomSize - 2);
-        if (roomW > this._maxRoomSize) {
-            roomW = this._maxRoomSize;
-        }
-        if (roomH > this._maxRoomSize) {
-            roomH = this._maxRoomSize;
-        }
-        var roomX = block.x + (this._wallHeight + 1) + 1 + Math.randomInt(block.w - roomW - (this._wallHeight + 1) * 2 - 1);
-        var roomY = block.y + (this._wallHeight + 1) + 1 + Math.randomInt(block.h - roomH - (this._wallHeight + 1) * 2 - 1);
-        var room = {x:roomX, y:roomY, w:roomW, h:roomH, hasPass:{t:false, b:false, l:false, r:false}};
+        var roomW = this._minRoomSize + Math.randomInt(block.w - this._minRoomSize - 2);
+        var roomH = this._minRoomSize + Math.randomInt(block.h - this._minRoomSize - 2);
+        var roomX = block.x + 1 + Math.randomInt(block.w - roomW - 2);     
+        var roomY = block.y + 1 + Math.randomInt(block.h - roomH - 2);     
+        var room = {x:roomX, y:roomY, w:roomW, h:roomH};
         this._rooms.push(room);
     }, this);
     this._rooms.forEach(function(room) {
@@ -893,14 +760,11 @@ Game_MapGeneratorRoomAndPass.prototype.makePasses = function() {
                 var tgetBlock = this._blocks[tgetIndex];
                 var crntRoom = this._rooms[crntIndex];
                 var tgetRoom = this._rooms[tgetIndex];
-                var crntPass = {x:0, y:0, w:0, h:0};
-                var tgetPass = {x:0, y:0, w:0, h:0};
-                var bordPass = {x:0, y:0, w:0, h:0};
+                var crntPass = {};
+                var tgetPass = {};
+                var bordPass = {};
                 switch (direction) {
                 case 't':
-                    if (crntRoom.hasPass.t || tgetRoom.hasPass.b) {
-                        return;
-                    }
                     crntPass.x = crntRoom.x + 1 + Math.randomInt(crntRoom.w - 2);
                     crntPass.y = crngBlock.y;
                     crntPass.w = 1;
@@ -913,13 +777,8 @@ Game_MapGeneratorRoomAndPass.prototype.makePasses = function() {
                     bordPass.y = crngBlock.y - 1;
                     bordPass.w = Math.max(crntPass.x, tgetPass.x) - bordPass.x + 1;
                     bordPass.h = 1;
-                    crntRoom.hasPass.t = true;
-                    tgetRoom.hasPass.b = true;
                     break;
                 case 'b':
-                    if (crntRoom.hasPass.b || tgetRoom.hasPass.t) {
-                        return;
-                    }
                     crntPass.x = crntRoom.x + 1 + Math.randomInt(crntRoom.w - 2);
                     crntPass.y = crntRoom.y + crntRoom.h;
                     crntPass.w = 1;
@@ -932,13 +791,8 @@ Game_MapGeneratorRoomAndPass.prototype.makePasses = function() {
                     bordPass.y = tgetBlock.y - 1;
                     bordPass.w = Math.max(crntPass.x, tgetPass.x) - bordPass.x + 1;
                     bordPass.h = 1;
-                    crntRoom.hasPass.b = true;
-                    tgetRoom.hasPass.t = true;
                     break;
                 case 'l':
-                    if (crntRoom.hasPass.l || tgetRoom.hasPass.r) {
-                        return;
-                    }
                     crntPass.x = crngBlock.x - 1;
                     crntPass.y = crntRoom.y + 1 + Math.randomInt(crntRoom.h - 2);
                     crntPass.w = crntRoom.x - crntPass.x;
@@ -951,13 +805,8 @@ Game_MapGeneratorRoomAndPass.prototype.makePasses = function() {
                     bordPass.y = Math.min(crntPass.y, tgetPass.y);
                     bordPass.w = 1;
                     bordPass.h = Math.max(crntPass.y, tgetPass.y) - bordPass.y + 1;
-                    crntRoom.hasPass.l = true;
-                    tgetRoom.hasPass.r = true;
                     break;
                 case 'r':
-                    if (crntRoom.hasPass.r || tgetRoom.hasPass.l) {
-                        return;
-                    }
                     crntPass.x = crntRoom.x + crntRoom.w
                     crntPass.w = tgetBlock.x - 1 - crntRoom.x - crntRoom.w
                     crntPass.y = crntRoom.y + 1 + Math.randomInt(crntRoom.h - 2);
@@ -970,8 +819,6 @@ Game_MapGeneratorRoomAndPass.prototype.makePasses = function() {
                     bordPass.y = Math.min(crntPass.y, tgetPass.y);
                     bordPass.w = 1;
                     bordPass.h = Math.max(crntPass.y, tgetPass.y) - bordPass.y + 1;
-                    crntRoom.hasPass.r = true;
-                    tgetRoom.hasPass.l = true;
                     break;
                 }
                 this._passes.push(crntPass);
@@ -1010,14 +857,14 @@ Game_MapGeneratorRoomAndPass.prototype.splitBlock = function(block) {
 
 //ブロック分割：横分割
 Game_MapGeneratorRoomAndPass.prototype.splitBlockH = function(block) {
-    var orgBlockW = 0;
-    var newBlockW = 0;
-    while (orgBlockW < this._minBlockSize || newBlockW < this._minBlockSize) {
-        orgBlockW = Math.floor(block.w / 4 + block.w * Math.random() / 2);
-        newBlockW = block.w - orgBlockW - 1;
+    var width1 = 0;
+    var width2 = 0;
+    while (width1 < this._minBlockSize || width2 < this._minBlockSize) {
+        width1 = Math.floor(block.w / 4 + block.w * Math.random() / 2);
+        width2 = block.w - width1 - 1;
     }
-    block.w = orgBlockW;
-    var newBlock = {x:block.x + orgBlockW + 1, y:block.y, w:newBlockW, h:block.h};
+    block.w = width1;
+    var newBlock = {x:block.x + width1 + 1, y:block.y, w:width2, h:block.h};
     this._blocks.push(newBlock);
     this.splitBlock(block);
     this.splitBlock(newBlock);
@@ -1025,14 +872,14 @@ Game_MapGeneratorRoomAndPass.prototype.splitBlockH = function(block) {
 
 // ブロック分割：縦分割
 Game_MapGeneratorRoomAndPass.prototype.splitBlockV = function(block) {
-    var orgBlockH = 0;
-    var newBlockH = 0;
-    while (orgBlockH < this._minBlockSize || newBlockH < this._minBlockSize) {
-        orgBlockH = Math.floor(block.h / 4 + block.h * Math.random() / 2);
-        newBlockH = block.h - orgBlockH - 1;
+    var height1 = 0;
+    var height2 = 0;
+    while (height1 < this._minBlockSize || height2 < this._minBlockSize) {
+        height1 = Math.floor(block.h / 4 + block.h * Math.random() / 2);
+        height2 = block.h - height1 - 1;
     }
-    block.h = orgBlockH;
-    var newBlock = {x:block.x, y:block.y + orgBlockH + 1, w:block.w, h:newBlockH};
+    block.h = height1;
+    var newBlock = {x:block.x, y:block.y + height1 + 1, w:block.w, h:height2};
     this._blocks.push(newBlock);
     this.splitBlock(block);
     this.splitBlock(newBlock);
@@ -1053,24 +900,21 @@ Game_MapGeneratorRoomAndPass.prototype.isSplitableByRoomNum = function() {
 
 // ブロック分割可能判定：横分割
 Game_MapGeneratorRoomAndPass.prototype.isSplitableV = function(block) {
-    return block.h > (this._minBlockSize * 2 + 1) && this.isSplitableByRoomNum();
+    return (block.h > (this._minRoomSize + 2) * 2 + 1) && this.isSplitableByRoomNum();
 };
 
 // ブロック分割可能判定：縦分割
 Game_MapGeneratorRoomAndPass.prototype.isSplitableH = function(block) {
-    return block.w > (this._minBlockSize * 2 + 1) && this.isSplitableByRoomNum();
+    return (block.w > (this._minRoomSize + 2) * 2 + 1) && this.isSplitableByRoomNum();
 };
 
 // 座標によって部屋を取得
 Game_MapGeneratorRoomAndPass.prototype.roomByXY = function(x, y) {
-    for (i = 0; i < this._rooms.length; i++) {
-        var room = this._rooms[i];
-        if (room.x <= x && x < room.x + room.w &&
-            room.y <= y && y < room.y + room.h)
-        {
-            return room;
+    this._rooms.forEach(function(room) {
+        if (room.x <= x && x <= room.x + room.w && room.y <= y && y <= room.y + room.h) {
+            return result = room;
         }
-    }
+    }, this);
     return undefined;
 };
 
@@ -1085,11 +929,6 @@ Game_Map.prototype.initialize = function() {
     Sanshiro.Game_MapGenerator.Game_Map_initialize.call(this);
 };
 
-// マップジェネレーターの取得
-Game_Map.prototype.mapGenerator = function() {
-    return this._mapGenerator;
-};
-
 // マップクラスのセットアップ
 Sanshiro.Game_MapGenerator.Game_Map_setup = Game_Map.prototype.setup;
 Game_Map.prototype.setup = function(mapId) {
@@ -1100,28 +939,21 @@ Game_Map.prototype.setup = function(mapId) {
 // マップクラスのタイルID
 Sanshiro.Game_MapGenerator.Game_Map_tileId = Game_Map.prototype.tileId
 Game_Map.prototype.tileId = function(x, y, z) {
-    if (this.isGenegratedMap()) {
+    if (!!this._mapGenerator && this._mapGenerator.isReady()) {
         return this._mapGenerator.tileId(x, y, z);
+    } else {
+        return Sanshiro.Game_MapGenerator.Game_Map_tileId.call(this, x, y, z);
     }
-    return Sanshiro.Game_MapGenerator.Game_Map_tileId.call(this, x, y, z);
 };
 
 // マップクラスのマップデータ
 Sanshiro.Game_MapGenerator.Game_Map_data = Game_Map.prototype.data
 Game_Map.prototype.data = function() {
-    if (this.isGenegratedMap()) {
+    if (!!this._mapGenerator && this._mapGenerator.isReady()) {
         return this._mapGenerator.data();
+    } else {
+        return Sanshiro.Game_MapGenerator.Game_Map_data.call(this);
     }
-    return Sanshiro.Game_MapGenerator.Game_Map_data.call(this);
-};
-
-// マップクラスの通行判定
-Sanshiro.Game_MapGenerator.Game_Map_isPassable = Game_Map.prototype.isPassable
-Game_Map.prototype.isPassable = function(x, y, d) {
-    if (this.isGenegratedMap()) {
-        return this._mapGenerator.isPassable(x, y, d);
-    }
-    return Sanshiro.Game_MapGenerator.Game_Map_isPassable.call(this, x, y, d);
 };
 
 // マップクラスのマップ自動生成
@@ -1139,61 +971,6 @@ Game_Map.prototype.generateMap = function(mapType) {
     if (Imported.SAN_AnalogMove) {
         Game_CollideMap.setup();
     }
-};
-
-// 自動生成マップ判定
-Game_Map.prototype.isGenegratedMap = function() {
-    return !!this._mapGenerator && this._mapGenerator.isReady();
-};
-
-// ツルハシ
-Game_Map.prototype.pickel = function() {
-    if (this.isGenegratedMap()) {
-        this._mapGenerator.pickel();
-    }
-};
-
-// バクダン
-Game_Map.prototype.bomb = function(x, y) {
-    if (this.isGenegratedMap()) {
-        this._mapGenerator.bomb(x, y);
-    }
-};
-
-// 大部屋
-Game_Map.prototype.bigRoom = function() {
-    if (this.isGenegratedMap()) {
-        this._mapGenerator.bigRoom();
-    }
-};
-
-// 壁生成
-Game_Map.prototype.makeWall = function(x, y) {
-    if (this.isGenegratedMap()) {
-        this._mapGenerator.makeWall(x, y);
-    }
-};
-
-//-----------------------------------------------------------------------------
-// Game_Character
-//
-// キャラクタークラス
-
-Game_Character.prototype.currentRoom = function () {
-    if (!$gameMap.isGenegratedMap ||
-        !($gameMap.mapGenerator() instanceof Game_MapGeneratorRoomAndPass))
-    {
-        return undefined;
-    }
-    return $gameMap.mapGenerator().roomByXY(this.x, this.y);
-};
-
-// プレイヤーと同部屋判定
-Game_Character.prototype.isSameRoomWithPlayer = function() {
-    if ($gameMap.mapGenerator().constructor === Game_MapGenerator) { return true; }
-    var room1 = this.currentRoom();
-    var room2 = $gamePlayer.currentRoom();
-    return (!!room1 && !!room2 && room1 === room2);
 };
 
 //-----------------------------------------------------------------------------
@@ -1223,13 +1000,6 @@ Sanshiro.Game_MapGenerator.Game_Interpreter_pluginCommand = Game_Interpreter.pro
 Game_Interpreter.prototype.pluginCommand = function(command, args) {
     Sanshiro.Game_MapGenerator.Game_Interpreter_pluginCommand.call(this, command, args);
     if (command === 'MapGenerator') {
-        switch (args[0]) {
-        case 'FillRoom':
-            $gameMap.generateMap(args[0]);
-            break;
-        case 'RoomAndPass':
-            $gameMap.generateMap(args[0]);
-            break;
-        }
+        $gameMap.generateMap(args[0]);
     }
 };
